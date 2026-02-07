@@ -1,2 +1,154 @@
+<<<<<<< HEAD
 # decision-assistant-roundtrip-demo
 A read-only demonstration repo for Decision Assistant. Shows a full server roundtrip evidence flow: REQUIRE_CONFIRM → EXECUTE → REJECT, including receipts, plan_hash validation, and CI-verifiable output. This is not the product source code.
+=======
+# Decision Assistant
+
+A Cursor **MCP server** that enforces deterministic **decision guardrails** for risky engineering actions.
+It does not “review” your code. It interrupts execution **at decision time** and emits a verifiable, machine-readable
+**evidence payload** (including a confirmation receipt when required).
+
+- Deterministic rules (no LLM required)
+- Guardrail modes: `ALLOW` / `REQUIRE_CONFIRM` / `BLOCK`
+- Receipt semantics: **random receipt_id**, **plan-bound plan_hash**, **idempotent consumption**
+- Designed for “solo dev sanity” and CI-grade evidence
+
+---
+
+## What it does
+
+When a change looks dangerous (scope explosion, refactor black hole patterns, dependency churn, etc.),
+Decision Assistant returns a **guardrail decision**:
+
+- `ALLOW` — proceed
+- `REQUIRE_CONFIRM` — blocked until explicit confirmation + receipt is provided
+- `BLOCK` — hard stop (policy threshold exceeded)
+
+In `REQUIRE_CONFIRM`, it returns a **receipt**:
+
+```json
+{
+  "receipt": {
+    "receipt_id": "gr_10af2f50c2ce",
+    "plan_hash": "plan_97d4da118562",
+    "scope": "this_call_only"
+  },
+  "confirmation": { "required": true },
+  "executed": false
+}
+```
+
+The user must re-run with:
+
+- `confirm.mode = "EXECUTE"`
+- `confirm.receipt_id` (must be reused)
+- `confirm.plan_hash` (must match current plan hash)
+
+If the plan changed, the EXECUTE is rejected and a **new receipt** is issued.
+
+---
+
+## Install
+
+```bash
+npm install
+npm run build
+```
+
+---
+
+## Run semantic tests (receipt norms)
+
+```bash
+npm run test:semantics
+```
+
+Expected: all tests pass.
+
+---
+
+## Server roundtrip evidence demo (v0.3d)
+
+This repository includes a deterministic “server roundtrip” evidence demo that proves:
+
+1) `REQUIRE_CONFIRM` issues `receipt_id` + `plan_hash`
+2) `EXECUTE` succeeds only when the receipt matches the plan hash (and reuses receipt_id)
+3) stale confirmations are rejected and re-issued
+
+### One command
+
+```bash
+npx tsx demo/demo_server_roundtrip.ts
+```
+
+Expected tail marker:
+
+```
+PASS: server roundtrip evidence
+{ "ok": true, "bundle": "server-roundtrip-evidence", "version": "v0.3d" }
+```
+
+### CI-style check
+
+```bash
+npx tsx scripts/ci/server_roundtrip_check.ts
+```
+
+This fails the process if the evidence marker is missing or any step exits non-zero.
+
+---
+
+## How the demo is structured
+
+- `demo/demo_require_confirm.ts`  
+  Finds a signals payload that lands on `REQUIRE_CONFIRM`, prints full payload, and persists:
+  - `demo/.demo_last.json` (last run context)
+  - `demo/_evidence/1_require_confirm.json` (evidence artifact)
+
+- `demo/demo_execute.ts`  
+  Reads `demo/.demo_last.json` (or CLI args) and runs `EXECUTE` with the same receipt.
+
+- `demo/demo_reject.ts`  
+  Mutates the signals to force **plan_hash drift**, attempts EXECUTE with stale plan_hash, and validates rejection + reissue.
+
+- `demo/demo_server_roundtrip.ts`  
+  Runs all three demos in sequence and prints `PASS: server roundtrip evidence`.
+
+---
+
+## Project boundaries
+
+Decision Assistant (this repo) is intentionally:
+
+- deterministic
+- local-first
+- “decision infrastructure” for engineering behavior
+
+It is **not**:
+
+- a general LLM agent
+- an auto-refactoring tool
+- a full product analytics platform
+
+If you want a broader governance + economic measurement layer across multiple decision surfaces,
+that belongs in MindForge. Decision Assistant should remain the small, sharp enforcement wedge.
+
+---
+
+## Contributing
+
+See `CONTRIBUTING.md`.
+
+Key invariants you must not break:
+
+- `assess()` stays **pure** (no fs/git/process/network)
+- `receipt_id` must be random, not derived from plan hash or intent
+- no extra lifecycle states beyond the normative set
+- consumption must be idempotent
+
+---
+
+## License
+
+See `LICENSE`.
+>>>>>>> b5fefcb (demo: server roundtrip evidence (read-only))
